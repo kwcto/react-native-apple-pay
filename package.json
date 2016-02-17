@@ -1,6 +1,6 @@
 {
   "name": "@taxfyle/react-native-apple-pay",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "React Native library for accepting payments with Apple Pay.",
   "scripts": {
     "lint": "node_modules/.bin/eslint .",
