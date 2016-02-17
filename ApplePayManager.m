@@ -29,7 +29,7 @@ RCT_EXPORT_METHOD(canMakePayments: (RCTResponseSenderBlock)callback)
 RCT_EXPORT_METHOD(canMakePaymentsUsingNetworks: (RCTResponseSenderBlock)callback)
 {
     NSArray *paymentNetworks = @[PKPaymentNetworkAmex, PKPaymentNetworkMasterCard, PKPaymentNetworkVisa];
-    
+
     if ([PKPaymentAuthorizationViewController canMakePaymentsUsingNetworks:paymentNetworks]) {
         callback(@[@true]);
     } else {
@@ -44,50 +44,59 @@ RCT_EXPORT_METHOD(paymentRequest: (NSDictionary *)args
 {
     // Set callback to self so we can use it later
     self.callback = callback;
-    
+
     // Set Payment Processor
     if (!args[@"paymentProcessor"] || !args[@"paymentProcessorPublicKey"]) {
         RCTLogError(@"[ApplePay] Your must provide a payment processor and a public key.");
     }
-    
+
     self.paymentProcessor = args[@"paymentProcessor"];
     self.paymentProcessorPublicKey = args[@"paymentProcessorPublicKey"];
     self.backendUrl = args[@"backendUrl"];
-    
+
     // Setup Payment Request
     PKPaymentRequest *request = [[PKPaymentRequest alloc] init];
-    
+
     // Merchant/Currency Setup
     request.countryCode = args[@"countryCode"];
     request.currencyCode = args[@"currencyCode"];
     request.merchantIdentifier = args[@"merchantIdentifier"];
-    
-    request.merchantCapabilities = PKMerchantCapabilityDebit;
+
+    request.merchantCapabilities = PKMerchantCapability3DS;
+    // request.merchantCapabilities = PKMerchantCapabilityDebit;
     request.supportedNetworks = @[PKPaymentNetworkAmex, PKPaymentNetworkMasterCard, PKPaymentNetworkVisa];
 
-    
+
     // Setup product, discount, shipping and total
     NSMutableArray *summaryItems = [NSMutableArray array];
-    
+
     for (NSDictionary *i in items) {
         NSLog(@"Item: %@", i[@"label"]);
         PKPaymentSummaryItem *item = [[PKPaymentSummaryItem alloc] init];
         item.label = i[@"label"];
         item.amount = [NSDecimalNumber decimalNumberWithString:i[@"amount"]];
-    
+
         [summaryItems addObject:item];
     }
 
     // Add Payment Items to request
     request.paymentSummaryItems = summaryItems;
-    
+
     // Show Payment Sheet
-    PKPaymentAuthorizationViewController *const viewController = [[PKPaymentAuthorizationViewController alloc] initWithPaymentRequest: request];
-    viewController.delegate = self;
-     
-    UIViewController *ctrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
-    [ctrl presentViewController:viewController animated:YES completion:nil];
-    
+    // PKPaymentAuthorizationViewController *const viewController = [[PKPaymentAuthorizationViewController alloc] initWithPaymentRequest: request];
+    // viewController.delegate = self;
+    PKPaymentAuthorizationViewController *auth = [[PKPaymentAuthorizationViewController alloc] initWithPaymentRequest:request];
+    auth.delegate = self;
+
+    if (auth) {
+      UIViewController *ctrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
+      [ctrl presentViewController:auth animated:YES completion:nil];
+    }
+    else {
+      NSLog(@"Apple Pay returned a nil PKPaymentAuthorizationViewController - make sure you've configured Apple Pay correctly, as outlined at https://stripe.com/docs/mobile/apple-pay");
+    }
+
+
     NSLog(@"Payment Authorization Controller visible.");
 }
 
@@ -109,14 +118,14 @@ RCT_EXPORT_METHOD(failure:(RCTResponseSenderBlock)callback)
                                 completion:(void (^)(PKPaymentAuthorizationStatus))completion
 {
     self.payment = payment;
-    
+
     // Set completion to self so we can call it from JS
     NSLog(@"completion: %@", completion);
     self.completion = completion;
-    
+
     // Select Payment Processor
     NSLog(@"Payment Processor: %@", self.paymentProcessor);
-    
+
     if ([self.paymentProcessor isEqual: @"stripe"]) {
         [StripeManager handlePaymentAuthorizationWithPayment:self.paymentProcessorPublicKey
                                                      payment:payment
@@ -136,4 +145,3 @@ RCT_EXPORT_METHOD(failure:(RCTResponseSenderBlock)callback)
 }
 
 @end
-
